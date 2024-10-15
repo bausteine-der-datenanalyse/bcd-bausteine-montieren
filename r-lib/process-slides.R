@@ -5,6 +5,9 @@ collect_one_slidedeck <- function(root, slides_root, idx, common_files, to_subdi
     # Input directory and existence check
     dir_root <- file.path(dir_in_base, root)
     dir_in <- file.path(dir_root, "folien")
+
+    print(dir_in)
+
     if (!dir.exists(dir_in)) stop("Folder ", dir_in, " does not exist")
 
     # Output

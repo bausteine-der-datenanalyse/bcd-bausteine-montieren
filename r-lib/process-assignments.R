@@ -8,6 +8,9 @@ process_assignments <- function(assignments, dir_in_base, dir_out, subdirs) {
         #
         # Input directory and existence check
         dir_in <- file.path(dir_in_base, entry$root, "aufgaben")
+
+        print(dir_in)
+        
         if (!dir.exists(dir_in)) stop("Folder ", dir_in, " does not exist")
 
         # Copy subdirectories
