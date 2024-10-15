@@ -1,6 +1,7 @@
 library(purrr)
 
-collect_one_slidedeck <- function(root, slides_root, idx, common_files, to_subdir) {
+collect_one_slidedeck <- function(
+    root, slides_root, dir_in_base, dir_out_base, idx, common_files, to_subdir) {
     #
     # Input directory and existence check
     dir_root <- file.path(dir_in_base, root)
@@ -77,8 +78,14 @@ process_slides <- function(slides, dir_in_base, dir_out_base, subdirs) {
             file.path(bd, "style.scss")
         )
 
-        collect_one_slidedeck(entry$root, slides_root, idx, common_files, TRUE)
-        collect_one_slidedeck(entry$root, slides_root, idx, common_files, FALSE)
+        collect_one_slidedeck(
+            entry$root, slides_root, dir_in_base, dir_out_base, idx, common_files,
+            to_subdir = TRUE
+        )
+        collect_one_slidedeck(
+            entry$root, slides_root, dir_in_base, dir_out_base, idx, common_files,
+            to_subdir = FALSE
+        )
 
         # Loop
         idx <- idx + 1
