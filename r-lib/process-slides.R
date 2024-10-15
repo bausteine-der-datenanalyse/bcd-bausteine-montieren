@@ -1,6 +1,6 @@
 library(purrr)
 
-collect_one_slidedeck <- function(root, idx, common_files, to_subdir) {
+collect_one_slidedeck <- function(root, slides_root, idx, common_files, to_subdir) {
     #
     # Input directory and existence check
     dir_root <- file.path(dir_in_base, root)
@@ -48,7 +48,7 @@ collect_one_slidedeck <- function(root, idx, common_files, to_subdir) {
     if (to_subdir) {
         zipfile <- paste0(name_out, ".zip")
         zipfile_path <- file.path(dir_out_base, zipfile)
-        output_dir <- file.path(here::here(), "_output/folien/c")
+        output_dir <- file.path(here::here(), "_output", slides_root, "c")
         if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
         zip::zip(zipfile, name_out, root = dir_out_base)
         file.copy(zipfile_path, file.path(output_dir, basename(zipfile)))
@@ -59,7 +59,8 @@ collect_one_slidedeck <- function(root, idx, common_files, to_subdir) {
 process_slides <- function(slides, dir_in_base, dir_out_base, subdirs) {
     #
     # Common files copied to each directory
-    bd <- file.path(here::here(), slides$root)
+    slides_root <- slides$root
+    bd <- file.path(here::here(), slides_root)
     common_files <- c(
         file.path(bd, "_quarto.yml"),
         file.path(bd, "style.scss")
@@ -73,8 +74,8 @@ process_slides <- function(slides, dir_in_base, dir_out_base, subdirs) {
             file.path(bd, "style.scss")
         )
 
-        collect_one_slidedeck(entry$root, idx, common_files, TRUE)
-        collect_one_slidedeck(entry$root, idx, common_files, FALSE)
+        collect_one_slidedeck(entry$root, slides_root, idx, common_files, TRUE)
+        collect_one_slidedeck(entry$root, slides_root, idx, common_files, FALSE)
 
         # Loop
         idx <- idx + 1
