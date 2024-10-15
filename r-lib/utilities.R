@@ -60,8 +60,11 @@ cat_files <- function(dir, pattern, with_solution = FALSE) {
         if (!is_solution) {
             have_solution <- file.exists(str_replace(file, ".qmd", ".sol.qmd"))
             cat_file(file)
-            if (with_solution) cat("\n### Lösung {-}\n")
-            if (!have_solution) cat("\nKeine Lösung\n")
+
+            if (with_solution) {
+                if (with_solution) cat("\n### Lösung {-}\n")
+                if (!have_solution) cat("\nKeine Lösung\n")
+            }
         }
 
         # This is a solution
