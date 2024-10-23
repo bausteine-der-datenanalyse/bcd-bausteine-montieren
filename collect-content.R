@@ -13,6 +13,15 @@ library(stringr)
 # Helper functions
 # -------------------------------------------------------------------------------------------------
 
+test_include <- function(path, exclude_patterns) {
+    for (p in exclude_patterns) {
+        if (str_detect(path, p)) {
+            return(FALSE)
+        }
+    }
+    file_test("-f", path)
+}
+
 make_name <- function(base, part_folder, name, idx) {
     sidx <- str_pad(idx, 2, side = "left", pad = "0")
     base |>
@@ -23,33 +32,25 @@ make_name <- function(base, part_folder, name, idx) {
         str_replace_all("\\$\\{idx\\}", sidx)
 }
 
-prepare_copy_to <- function(to) {
-    if (file.exists(to)) stop("File exists: ", to)
+prepare_copy_to <- function(to, overwrite) {
+    do_overwrite <- !is.null(overwrite) && overwrite
+    if (file.exists(to) && !do_overwrite) stop("File exists: ", to)
     folder <- dirname(to)
     if (!dir.exists(folder)) dir.create(folder, recursive = TRUE)
 }
 
-file_copy_safe <- function(from, to) {
-    prepare_copy_to(to)
+file_copy_safe <- function(from, to, overwrite) {
+    prepare_copy_to(to, overwrite)
     file.copy(from, to)
 }
 
-test_include <- function(path, exclude_patterns) {
-    for (p in exclude_patterns) {
-        if (str_detect(path, p)) {
-            return(FALSE)
-        }
-    }
-    file_test("-f", path)
-}
-
-copy_job <- function(from, to, exclude_patterns) {
+copy_job <- function(from, to, exclude_patterns, overwrite) {
     if (file_test("-f", from)) { # Copy one file
-        file_copy_safe(from, to)
+        file_copy_safe(from, to, overwrite)
     } else if (file_test("-d", from)) { # Copy folder
         for (f in list.files(from)) {
             from_path <- file.path(from, f)
-            if (test_include(from_path, exclude_patterns)) file_copy_safe(from_path, file.path(to, f))
+            if (test_include(from_path, exclude_patterns)) file_copy_safe(from_path, file.path(to, f), overwrite)
         }
     } else { # Don't know
         stop("Don't know what to do with: ", from)
@@ -82,7 +83,8 @@ for (job in yaml$jobs) {
         copy_job(
             make_name(job$from, "xxx", "yyy", 99),
             make_name(job$to, "xxx", "yyy", 99),
-            job$`exclude-patterns`
+            job$`exclude-patterns`,
+            job$overwrite
         )
     } else {
         stop("Unknown job: ", keys[[1]])
@@ -104,8 +106,9 @@ for (part in yaml$parts) {
         if (keys[[1]] == "copy") {
             copy_job(
                 make_name(job$from, here::here(part_folder), name, idx),
-                make_name(file.path(target_folder, job$to), part_folder, name, idx),
-                job$`exclude-patterns`
+                make_name(job$to, part_folder, name, idx),
+                job$`exclude-patterns`,
+                job$overwrite
             )
         } else if (keys[[1]] == "zip") {
             zip_job(
