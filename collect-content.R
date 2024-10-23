@@ -22,14 +22,16 @@ test_include <- function(path, exclude_patterns) {
     file_test("-f", path)
 }
 
+substitute_definitions <- function(string) {
+    for (key in names(definitions)) string <- str_replace_all(string, key, definitions[[key]])
+    string
+}
+
 make_name <- function(base, part_folder, name, idx) {
-    sidx <- str_pad(idx, 2, side = "left", pad = "0")
-    base |>
-        str_replace_all("\\$\\{target\\-folder\\}", target_folder) |>
-        str_replace_all("\\$\\{deploy\\-folder\\}", deploy_folder) |>
-        str_replace_all("\\$\\{part\\-folder\\}", part_folder) |>
-        str_replace_all("\\$\\{name\\}", name) |>
-        str_replace_all("\\$\\{idx\\}", sidx)
+    definitions[["\\$\\{part\\-folder\\}"]] <<- part_folder
+    definitions[["\\$\\{name\\}"]] <<- name
+    definitions[["\\$\\{idx\\}"]] <<- str_pad(idx, 2, side = "left", pad = "0")
+    substitute_definitions(base)
 }
 
 prepare_copy_to <- function(to, overwrite) {
@@ -71,12 +73,20 @@ yaml <- read_yaml("content.yml")
 target_folder <- yaml$`target-folder`
 deploy_folder <- here::here(yaml$`deploy-folder`)
 
+
+# Global definitions
+definitions <- list(
+    "\\$\\{target\\-folder\\}" = target_folder,
+    "\\$\\{deploy\\-folder\\}" = deploy_folder
+)
+
+
 # Clean up and make target folder
 if (dir.exists(target_folder)) unlink(target_folder, recursive = TRUE)
 dir.create(target_folder, recursive = TRUE)
 
 
-# Jobs
+# Process jobs
 for (job in yaml$jobs) {
     keys <- names(job)
     if (keys[[1]] == "copy") {
@@ -102,7 +112,6 @@ for (part in yaml$parts) {
     for (job in yaml$`jobs-on-parts`) {
         keys <- names(job)
         name <- str_match(part$folder, yaml$`part-name-pattern`)[2]
-
         if (keys[[1]] == "copy") {
             copy_job(
                 make_name(job$from, here::here(part_folder), name, idx),
