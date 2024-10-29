@@ -92,7 +92,7 @@ do_assignments <- function(pwps, with_solution) {
                 # Announce solution
                 if (with_solution) {
                     cat("### Lösung {-}\n\n")
-                    if (!have_solution) cat("Keine Lösung\n")
+                    if (!have_solution) cat("Keine Lösung\n\n")
                 }
             } else if (with_solution) {
                 #
