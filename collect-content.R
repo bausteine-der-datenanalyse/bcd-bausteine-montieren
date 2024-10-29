@@ -1,12 +1,14 @@
 #!/usr/bin/env Rscript
 
-# library(zip)
-# library(here)
 library(yaml)
 library(purrr)
 library(readr)
 library(tools)
 library(stringr)
+
+# Used but not importet because of naming conflicts
+# library(zip)
+# library(here)
 
 
 # -------------------------------------------------------------------------------------------------
@@ -171,6 +173,9 @@ increment_index <- function() {
 # Process input
 # -------------------------------------------------------------------------------------------------
 
+
+# Message
+cat("Collecting content...")
 
 # Read YAML file
 yaml <- read_yaml("content.yml")
