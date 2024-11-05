@@ -41,12 +41,7 @@ file_copy_safe <- function(from, to, overwrite) {
 # Job functions
 # -------------------------------------------------------------------------------------------------
 
-copy_job <- function(job) {
-    from <- substitute_definitions(job$from)
-    to <- substitute_definitions(job$to)
-    exclude_patterns <- job$`exclude-patterns`
-    overwrite <- job$overwrite
-
+copy_job_do <- function(from, to, exclude_patterns = NULL, overwrite = FALSE) {
     if (file_test("-f", from)) { # Copy one file
         file_copy_safe(from, to, overwrite)
     } else if (file_test("-d", from)) { # Copy folder
@@ -55,8 +50,17 @@ copy_job <- function(job) {
             if (test_include(from_path, exclude_patterns)) file_copy_safe(from_path, file.path(to, f), overwrite)
         }
     } else { # Don't know
-        stop("Don't know what to do with: ", from)
+        stop("No such file or directory: ", from)
     }
+}
+
+copy_job <- function(job) {
+    copy_job_do(
+        substitute_definitions(job$from),
+        substitute_definitions(job$to),
+        job$`exclude-patterns`,
+        job$overwrite
+    )
 }
 
 zip_job <- function(job) {
@@ -76,9 +80,9 @@ do_assignments <- function(pwps, with_solution) {
     #
     # Process files
     for (pwp in pwps) {
-        path <- substitute_definitions(pwp)
-        folder <- dirname(path)
-        pattern <- basename(path)
+        pwp <- substitute_definitions(pwp)
+        folder <- dirname(pwp)
+        pattern <- basename(pwp)
 
         for (file in list.files(path = folder, pattern = pattern)) {
             file_sol <- str_replace(file, fixed(".qmd"), ".sol.qmd")
@@ -110,17 +114,32 @@ assignment_paper_job <- function(job) {
     define("sol", job$sol)
     define("subtitle", job$subtitle)
 
+    # Assignment papers
     sink(substitute_definitions("${target-folder}/aufgabenblatt-${idx}.qmd"))
     cat(substitute_definitions("${assignment-header}"))
     cat("\n")
     do_assignments(job$files, with_solution = FALSE)
     sink()
 
+    # Solutions
     sink(substitute_definitions("${target-folder}/aufgabenblatt-${idx}-loesung-${sol}.qmd"))
     cat(substitute_definitions("${assignment-solution-header}"))
     cat("\n")
     do_assignments(job$files, with_solution = TRUE)
     sink()
+
+    # Folders XXX
+    for (pwp in job$folders) {
+        pwp <- substitute_definitions(pwp)
+        folder <- dirname(pwp)
+        pattern <- basename(pwp)
+
+        for (e in list.files(path = folder, pattern = pattern)) {
+            from <- file.path(folder, e)
+            to <- file.path(substitute_definitions("${target-folder}"), e)
+            if (file_test("-d", from)) copy_job_do(from, to)
+        }
+    }
 }
 
 increment_index_job <- function(job) increment_index()
@@ -146,10 +165,18 @@ definitions <- list()
 define <- function(var, val) definitions[[var]] <<- val
 
 substitute_definitions <- function(s) {
-    for (key in names(definitions)) {
-        value <- definitions[[key]]
-        var <- paste0("${", key, "}")
-        if (length(value)) s <- str_replace_all(s, fixed(var), value)
+    changed <- TRUE
+    while (changed) {
+        changed <- FALSE
+        for (key in names(definitions)) {
+            value <- definitions[[key]]
+            if (length(value)) {
+                s_old <- s
+                var <- paste0("${", key, "}")
+                s <- str_replace_all(s, fixed(var), value)
+                if (s != s_old) changed <- TRUE
+            }
+        }
     }
     s
 }
@@ -175,7 +202,7 @@ increment_index <- function() {
 
 
 # Message
-cat("Collecting content...")
+cat("Collecting content...\n")
 
 # Read YAML file
 yaml <- read_yaml("content.yml")
@@ -210,16 +237,19 @@ walk(yaml$jobs, handle_job)
 # Process parts
 reset_index()
 for (part in yaml$parts) {
-    #
-    # Define name and part folder
-    define("name", str_match(part$folder, yaml$`part-name-pattern`)[2])
-    define("part-folder", here::here(part$folder))
 
-    # Check if part folder exists
-    if (!dir.exists(definitions[["part-folder"]])) stop("Part folder does not exist: ", definitions[["part-folder"]])
+    if (part$folder != "skip") {
+        #
+        # Define name and part folder
+        define("name", str_match(part$folder, yaml$`part-name-pattern`)[2])
+        define("part-folder", here::here(part$folder))
 
-    # Process jobs
-    walk(yaml$`jobs-on-parts`, handle_job)
+        # Check if part folder exists
+        if (!dir.exists(definitions[["part-folder"]])) stop("Part folder does not exist: ", definitions[["part-folder"]])
+
+        # Process jobs
+        walk(yaml$`jobs-on-parts`, handle_job)
+    }
 
     # Increment counter
     increment_index()
