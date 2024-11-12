@@ -15,6 +15,8 @@ library(stringr)
 # Helper functions
 # -------------------------------------------------------------------------------------------------
 
+is_true <- function(b) !is.null(b) && b
+
 test_include <- function(path, exclude_patterns) {
     for (p in exclude_patterns) {
         if (str_detect(path, p)) {
@@ -25,8 +27,7 @@ test_include <- function(path, exclude_patterns) {
 }
 
 prepare_copy_to <- function(to, overwrite) {
-    do_overwrite <- !is.null(overwrite) && overwrite
-    if (file.exists(to) && !do_overwrite) stop("File exists: ", to)
+    if (file.exists(to) && !is_true(overwrite)) stop("File exists: ", to)
     folder <- dirname(to)
     if (!dir.exists(folder)) dir.create(folder, recursive = TRUE)
 }
@@ -41,7 +42,7 @@ file_copy_safe <- function(from, to, overwrite) {
 # Job functions
 # -------------------------------------------------------------------------------------------------
 
-copy_job_do <- function(from, to, exclude_patterns = NULL, overwrite = FALSE) {
+copy_job_do <- function(from, to, exclude_patterns = NULL, overwrite = FALSE, optional = FALSE) {
     if (file_test("-f", from)) { # Copy one file
         file_copy_safe(from, to, overwrite)
     } else if (file_test("-d", from)) { # Copy folder
@@ -49,7 +50,7 @@ copy_job_do <- function(from, to, exclude_patterns = NULL, overwrite = FALSE) {
             from_path <- file.path(from, f)
             if (test_include(from_path, exclude_patterns)) file_copy_safe(from_path, file.path(to, f), overwrite)
         }
-    } else { # Don't know
+    } else if (!is_true(optional)) { # Don't know
         stop("No such file or directory: ", from)
     }
 }
@@ -59,7 +60,8 @@ copy_job <- function(job) {
         substitute_definitions(job$from),
         substitute_definitions(job$to),
         job$`exclude-patterns`,
-        job$overwrite
+        job$overwrite,
+        job$optional
     )
 }
 
@@ -75,10 +77,10 @@ delete_job <- function(job) {
     unlink(folder, recursive = TRUE)
 }
 
-# pwp: Path with pattern
 do_assignments <- function(pwps, with_solution) {
     #
     # Process files
+    # pwp stands for path with pattern
     for (pwp in pwps) {
         pwp <- substitute_definitions(pwp)
         folder <- dirname(pwp)
@@ -237,7 +239,6 @@ walk(yaml$jobs, handle_job)
 # Process parts
 reset_index()
 for (part in yaml$parts) {
-
     if (part$folder != "skip") {
         #
         # Define name and part folder
