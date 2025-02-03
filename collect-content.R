@@ -66,9 +66,19 @@ copy_job <- function(job) {
 }
 
 zip_job <- function(job) {
+    #
+    # Definitions
     zipfile <- substitute_definitions(job$zipfile)
     folder <- substitute_definitions(job$folder)
     root <- substitute_definitions(job$root)
+
+    # Create path to zipfile if needed
+    zipfile_path <- dirname(zipfile)
+    if (!dir.exists(zipfile_path)) {
+        dir.create(zipfile_path, recursive = TRUE)
+    }
+
+    # Zip
     zip::zip(zipfile, folder, root = root)
 }
 
