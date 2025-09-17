@@ -6,9 +6,9 @@ library(readr)
 library(tools)
 library(stringr)
 
-# Used but not importet because of naming conflicts
+# Used but not imported
+# library(rprojroot)
 # library(zip)
-# library(here)
 
 
 # -------------------------------------------------------------------------------------------------
@@ -16,6 +16,8 @@ library(stringr)
 # -------------------------------------------------------------------------------------------------
 
 is_true <- function(b) !is.null(b) && b
+
+from_project_root <- function(file_or_folder = "") rprojroot::is_r_package$find_file(file_or_folder)
 
 test_include <- function(path, exclude_patterns) {
     for (p in exclude_patterns) {
@@ -220,12 +222,12 @@ cat("Collecting content...\n")
 yaml <- read_yaml("content.yml")
 
 target_folder <- yaml$`target-folder`
-deploy_folder <- here::here(yaml$`deploy-folder`)
+deploy_folder <- from_project_root(yaml$`deploy-folder`)
 
 
 define("target-folder", target_folder)
 define("deploy-folder", deploy_folder)
-define("project-folder", here::here())
+define("project-folder", from_project_root())
 
 
 for (def in yaml$definitions) {
@@ -253,7 +255,10 @@ for (part in yaml$parts) {
         #
         # Define name and part folder
         define("name", str_match(part$folder, yaml$`part-name-pattern`)[2])
-        define("part-folder", here::here(part$folder))
+        define("part-folder", from_project_root(part$folder))
+
+        # XXX
+        show(definitions[["part-folder"]])
 
         # Check if part folder exists
         if (!dir.exists(definitions[["part-folder"]])) stop("Part folder does not exist: ", definitions[["part-folder"]])
