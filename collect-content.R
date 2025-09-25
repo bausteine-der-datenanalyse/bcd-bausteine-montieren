@@ -218,18 +218,23 @@ increment_index <- function() {
 # Message
 cat("Collecting content...\n")
 
+
 # Read YAML file
 yaml <- read_yaml("content.yml")
 
+
+# Folders
 target_folder <- yaml$`target-folder`
 deploy_folder <- from_project_root(yaml$`deploy-folder`)
 
 
+# Definitions
 define("target-folder", target_folder)
 define("deploy-folder", deploy_folder)
 define("project-folder", from_project_root())
 
 
+# Definitions from YAML
 for (def in yaml$definitions) {
     var <- names(def)[1]
     val <- def[[var]]
@@ -238,7 +243,7 @@ for (def in yaml$definitions) {
 
 
 # Clean up and make target folder
-target_folder <- definitions[["target-folder"]]
+if (dir.exists(deploy_folder)) unlink(deploy_folder, recursive = TRUE)
 if (dir.exists(target_folder)) unlink(target_folder, recursive = TRUE)
 dir.create(target_folder, recursive = TRUE)
 
@@ -257,11 +262,9 @@ for (part in yaml$parts) {
         define("name", str_match(part$folder, yaml$`part-name-pattern`)[2])
         define("part-folder", from_project_root(part$folder))
 
-        # XXX
-        show(definitions[["part-folder"]])
-
         # Check if part folder exists
-        if (!dir.exists(definitions[["part-folder"]])) stop("Part folder does not exist: ", definitions[["part-folder"]])
+        if (!dir.exists(definitions[["part-folder"]]))
+            stop("Part folder does not exist: ", definitions[["part-folder"]])
 
         # Process jobs
         walk(yaml$`jobs-on-parts`, handle_job)
