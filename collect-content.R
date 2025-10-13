@@ -45,8 +45,6 @@ file_copy_safe <- function(from, to, overwrite) {
 # -------------------------------------------------------------------------------------------------
 
 copy_job_do <- function(from, to, exclude_patterns = NULL, overwrite = FALSE, optional = FALSE, transform = NULL) {
-
-
     # Copy and create list of copied files
     files <- list()
     if (file_test("-f", from)) { # Copy one file
@@ -67,9 +65,26 @@ copy_job_do <- function(from, to, exclude_patterns = NULL, overwrite = FALSE, op
 
     # Transform files if requested
     if (!is.null(transform) && transform$type == "replace") {
-        for(file in files) {
+        for (file in files) {
+            in_chunk <- FALSE
             lines <- read_lines(file)
-            lines <- str_replace_all(lines, regex(transform$pattern), transform$replacement)
+            for (i in seq_along(lines)) {
+                l <- lines[i]
+
+                # State
+                if (startsWith(l, "```{r}")) {
+                    in_chunk <- TRUE
+                } else if (in_chunk && startsWith(l, "```")) {
+                    in_chunk <- FALSE
+                }
+
+                # Transform if not in chunk
+                if (!in_chunk) {
+                    lines[i] <- str_replace_all(l, regex(transform$pattern), transform$replacement)
+                } else {
+                    lines[i] <- l
+                }
+            }
             write_lines(lines, file)
         }
     }
