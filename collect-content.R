@@ -44,16 +44,34 @@ file_copy_safe <- function(from, to, overwrite) {
 # Job functions
 # -------------------------------------------------------------------------------------------------
 
-copy_job_do <- function(from, to, exclude_patterns = NULL, overwrite = FALSE, optional = FALSE) {
+copy_job_do <- function(from, to, exclude_patterns = NULL, overwrite = FALSE, optional = FALSE, transform = NULL) {
+
+
+    # Copy and create list of copied files
+    files <- list()
     if (file_test("-f", from)) { # Copy one file
         file_copy_safe(from, to, overwrite)
+        files <- append(files, to)
     } else if (file_test("-d", from)) { # Copy folder
         for (f in list.files(from)) {
             from_path <- file.path(from, f)
-            if (test_include(from_path, exclude_patterns)) file_copy_safe(from_path, file.path(to, f), overwrite)
+            to_path <- file.path(to, f)
+            if (test_include(from_path, exclude_patterns)) {
+                file_copy_safe(from_path, to_path, overwrite)
+                files <- append(files, to_path)
+            }
         }
     } else if (!is_true(optional)) { # Don't know
         stop("No such file or directory: ", from)
+    }
+
+    # Transform files if requested
+    if (!is.null(transform) && transform$type == "replace") {
+        for(file in files) {
+            lines <- read_lines(file)
+            lines <- str_replace_all(lines, regex(transform$pattern), transform$replacement)
+            write_lines(lines, file)
+        }
     }
 }
 
@@ -63,7 +81,8 @@ copy_job <- function(job) {
         substitute_definitions(job$to),
         job$`exclude-patterns`,
         job$overwrite,
-        job$optional
+        job$optional,
+        job$transform
     )
 }
 
@@ -89,7 +108,7 @@ delete_job <- function(job) {
     unlink(folder, recursive = TRUE)
 }
 
-do_assignments <- function(pwps, with_solution) {
+assignment_paper_job_do <- function(pwps, with_solution) {
     #
     # Process files
     # pwp stands for path with pattern
@@ -132,14 +151,14 @@ assignment_paper_job <- function(job) {
     sink(substitute_definitions("${target-folder}/aufgabenblatt-${idx}.qmd"))
     cat(substitute_definitions("${assignment-header}"))
     cat("\n")
-    do_assignments(job$files, with_solution = FALSE)
+    assignment_paper_job_do(job$files, with_solution = FALSE)
     sink()
 
     # Solutions
     sink(substitute_definitions("${target-folder}/aufgabenblatt-${idx}-loesung-${sol}.qmd"))
     cat(substitute_definitions("${assignment-solution-header}"))
     cat("\n")
-    do_assignments(job$files, with_solution = TRUE)
+    assignment_paper_job_do(job$files, with_solution = TRUE)
     sink()
 
     # Folders XXX
@@ -263,8 +282,9 @@ for (part in yaml$parts) {
         define("part-folder", from_project_root(part$folder))
 
         # Check if part folder exists
-        if (!dir.exists(definitions[["part-folder"]]))
+        if (!dir.exists(definitions[["part-folder"]])) {
             stop("Part folder does not exist: ", definitions[["part-folder"]])
+        }
 
         # Process jobs
         walk(yaml$`jobs-on-parts`, handle_job)
