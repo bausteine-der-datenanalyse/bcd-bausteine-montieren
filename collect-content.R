@@ -7,9 +7,8 @@ library(tools)
 library(stringr)
 
 # Used but not imported
-# library(rprojroot)
-# library(zip)
-
+# - rprojroot
+# - zip
 
 # -------------------------------------------------------------------------------------------------
 # Helper functions
@@ -20,23 +19,58 @@ is_true <- function(b) !is.null(b) && b
 from_project_root <- function(file_or_folder = "") rprojroot::is_r_package$find_file(file_or_folder)
 
 test_include <- function(path, exclude_patterns) {
-    for (p in exclude_patterns) {
-        if (str_detect(path, p)) {
-            return(FALSE)
-        }
+  for (p in exclude_patterns) {
+    if (str_detect(path, p)) {
+      return(FALSE)
     }
-    file_test("-f", path)
+  }
+  file_test("-f", path)
 }
 
 prepare_copy_to <- function(to, overwrite) {
-    if (file.exists(to) && !is_true(overwrite)) stop("File exists: ", to)
-    folder <- dirname(to)
-    if (!dir.exists(folder)) dir.create(folder, recursive = TRUE)
+  if (file.exists(to) && !is_true(overwrite)) {
+    stop("File exists: ", to)
+  }
+  folder <- dirname(to)
+  if (!dir.exists(folder)) dir.create(folder, recursive = TRUE)
 }
 
 file_copy_safe <- function(from, to, overwrite) {
-    prepare_copy_to(to, overwrite)
-    file.copy(from, to)
+  prepare_copy_to(to, overwrite)
+  file.copy(from, to)
+}
+
+do_transform_replace <- function(file, pattern, replacement, replace_in_chunk = FALSE) {
+  in_chunk <- FALSE
+  lines <- read_lines(file)
+  for (i in seq_along(lines)) {
+    l <- lines[i]
+
+    # State
+    if (startsWith(l, "```{r}")) {
+      in_chunk <- TRUE
+    } else if (in_chunk && startsWith(l, "```")) {
+      in_chunk <- FALSE
+    }
+
+    # Transform if not in chunk
+    if (!in_chunk || replace_in_chunk) {
+      lines[i] <- str_replace_all(l, regex(pattern), replacement)
+    } else {
+      lines[i] <- l
+    }
+  }
+  write_lines(lines, file)
+}
+
+do_transform <- function(files, transform) {
+  for (file in files) {
+    if (transform$type == "replace") {
+      do_transform_replace(file, transform$pattern, transform$replacement)
+    } else {
+      stop("Unknown transform: ", transform$type)
+    }
+  }
 }
 
 
@@ -44,160 +78,151 @@ file_copy_safe <- function(from, to, overwrite) {
 # Job functions
 # -------------------------------------------------------------------------------------------------
 
-copy_job_do <- function(from, to, exclude_patterns = NULL, overwrite = FALSE, optional = FALSE, transform = NULL) {
-    # Copy and create list of copied files
-    files <- list()
-    if (file_test("-f", from)) { # Copy one file
-        file_copy_safe(from, to, overwrite)
-        files <- append(files, to)
-    } else if (file_test("-d", from)) { # Copy folder
-        for (f in list.files(from)) {
-            from_path <- file.path(from, f)
-            to_path <- file.path(to, f)
-            if (test_include(from_path, exclude_patterns)) {
-                file_copy_safe(from_path, to_path, overwrite)
-                files <- append(files, to_path)
-            }
-        }
-    } else if (!is_true(optional)) { # Don't know
-        stop("No such file or directory: ", from)
+copy_job_do <- function(
+  from,
+  to,
+  exclude_patterns = NULL,
+  overwrite = FALSE,
+  optional = FALSE,
+  transform = NULL
+) {
+  # Copy and create list of copied files
+  files <- list()
+  if (file_test("-f", from)) {
+    # Copy one file
+    file_copy_safe(from, to, overwrite)
+    files <- append(files, to)
+  } else if (file_test("-d", from)) {
+    # Copy folder
+    for (f in list.files(from)) {
+      from_path <- file.path(from, f)
+      to_path <- file.path(to, f)
+      if (test_include(from_path, exclude_patterns)) {
+        file_copy_safe(from_path, to_path, overwrite)
+        files <- append(files, to_path)
+      }
     }
+  } else if (!is_true(optional)) {
+    # Don't know
+    stop("No such file or directory: ", from)
+  }
 
-    # Transform files if requested
-    if (!is.null(transform) && transform$type == "replace") {
-        for (file in files) {
-            in_chunk <- FALSE
-            lines <- read_lines(file)
-            for (i in seq_along(lines)) {
-                l <- lines[i]
-
-                # State
-                if (startsWith(l, "```{r}")) {
-                    in_chunk <- TRUE
-                } else if (in_chunk && startsWith(l, "```")) {
-                    in_chunk <- FALSE
-                }
-
-                # Transform if not in chunk
-                if (!in_chunk) {
-                    lines[i] <- str_replace_all(l, regex(transform$pattern), transform$replacement)
-                } else {
-                    lines[i] <- l
-                }
-            }
-            write_lines(lines, file)
-        }
-    }
+  # Transform files if requested
+  if (!is.null(transform)) {
+    do_transform(files, transform)
+  }
 }
 
 copy_job <- function(job) {
-    copy_job_do(
-        substitute_definitions(job$from),
-        substitute_definitions(job$to),
-        job$`exclude-patterns`,
-        job$overwrite,
-        job$optional,
-        job$transform
-    )
+  copy_job_do(
+    substitute_definitions(job$from),
+    substitute_definitions(job$to),
+    job$`exclude-patterns`,
+    job$overwrite,
+    job$optional,
+    job$transform
+  )
 }
 
 zip_job <- function(job) {
-    #
-    # Definitions
-    zipfile <- substitute_definitions(job$zipfile)
-    folder <- substitute_definitions(job$folder)
-    root <- substitute_definitions(job$root)
+  #
+  # Definitions
+  zipfile <- substitute_definitions(job$zipfile)
+  folder <- substitute_definitions(job$folder)
+  root <- substitute_definitions(job$root)
 
-    # Create path to zipfile if needed
-    zipfile_path <- dirname(zipfile)
-    if (!dir.exists(zipfile_path)) {
-        dir.create(zipfile_path, recursive = TRUE)
-    }
+  # Create path to zipfile if needed
+  zipfile_path <- dirname(zipfile)
+  if (!dir.exists(zipfile_path)) {
+    dir.create(zipfile_path, recursive = TRUE)
+  }
 
-    # Zip
-    zip::zip(zipfile, folder, root = root)
+  # Zip
+  zip::zip(zipfile, folder, root = root)
 }
 
 delete_job <- function(job) {
-    folder <- substitute_definitions(job$folder)
-    unlink(folder, recursive = TRUE)
+  folder <- substitute_definitions(job$folder)
+  unlink(folder, recursive = TRUE)
 }
 
 assignment_paper_job_do <- function(pwps, with_solution) {
-    #
-    # Process files
-    # pwp stands for path with pattern
-    for (pwp in pwps) {
-        pwp <- substitute_definitions(pwp)
-        folder <- dirname(pwp)
-        pattern <- basename(pwp)
+  #
+  # Process files
+  # pwp stands for path with pattern
+  for (pwp in pwps) {
+    pwp <- substitute_definitions(pwp)
+    folder <- dirname(pwp)
+    pattern <- basename(pwp)
 
-        for (file in list.files(path = folder, pattern = pattern)) {
-            file_sol <- str_replace(file, fixed(".qmd"), ".sol.qmd")
-            is_solution <- str_detect(file, fixed(".sol."))
-            have_solution <- file.exists(file.path(folder, file_sol))
+    for (file in list.files(path = folder, pattern = pattern)) {
+      file_sol <- str_replace(file, fixed(".qmd"), ".sol.qmd")
+      is_solution <- str_detect(file, fixed(".sol."))
+      have_solution <- file.exists(file.path(folder, file_sol))
 
-            if (!is_solution) {
-                #
-                # Cat assignment
-                cat(read_lines(file.path(folder, file)), sep = "\n")
-                cat("\n")
+      if (!is_solution) {
+        #
+        # Cat assignment
+        cat(read_lines(file.path(folder, file)), sep = "\n")
+        cat("\n")
 
-                # Announce solution
-                if (with_solution) {
-                    cat("### Lösung {-}\n\n")
-                    if (!have_solution) cat("Keine Lösung\n\n")
-                }
-            } else if (with_solution) {
-                #
-                # Cat solution
-                cat(read_lines(file.path(folder, file)), sep = "\n")
-                cat("\n")
-            }
+        # Announce solution
+        if (with_solution) {
+          cat("### Lösung {-}\n\n")
+          if (!have_solution) cat("Keine Lösung\n\n")
         }
+      } else if (with_solution) {
+        #
+        # Cat solution
+        cat(read_lines(file.path(folder, file)), sep = "\n")
+        cat("\n")
+      }
     }
+  }
 }
 
 assignment_paper_job <- function(job) {
-    define("sol", job$sol)
-    define("subtitle", job$subtitle)
+  define("sol", job$sol)
+  define("subtitle", job$subtitle)
 
-    # Assignment papers
-    sink(substitute_definitions("${target-folder}/aufgabenblatt-${idx}.qmd"))
-    cat(substitute_definitions("${assignment-header}"))
-    cat("\n")
-    assignment_paper_job_do(job$files, with_solution = FALSE)
-    sink()
+  # Assignment papers
+  sink(substitute_definitions("${target-folder}/aufgabenblatt-${idx}.qmd"))
+  cat(substitute_definitions("${assignment-header}"))
+  cat("\n")
+  assignment_paper_job_do(job$files, with_solution = FALSE)
+  sink()
 
-    # Solutions
-    sink(substitute_definitions("${target-folder}/aufgabenblatt-${idx}-loesung-${sol}.qmd"))
-    cat(substitute_definitions("${assignment-solution-header}"))
-    cat("\n")
-    assignment_paper_job_do(job$files, with_solution = TRUE)
-    sink()
+  # Solutions
+  f <- substitute_definitions("${target-folder}/aufgabenblatt-${idx}-loesung-${sol}.qmd")
+  sink(f)
+  cat(substitute_definitions("${assignment-solution-header}"))
+  cat("\n")
+  assignment_paper_job_do(job$files, with_solution = TRUE)
+  sink()
+  do_transform_replace(f, "\\{r\\}", "{.r}", replace_in_chunk = TRUE)
 
-    # Folders XXX
-    for (pwp in job$folders) {
-        pwp <- substitute_definitions(pwp)
-        folder <- dirname(pwp)
-        pattern <- basename(pwp)
+  # Folders
+  for (pwp in job$folders) {
+    pwp <- substitute_definitions(pwp)
+    folder <- dirname(pwp)
+    pattern <- basename(pwp)
 
-        for (e in list.files(path = folder, pattern = pattern)) {
-            from <- file.path(folder, e)
-            to <- file.path(substitute_definitions("${target-folder}"), e)
-            if (file_test("-d", from)) copy_job_do(from, to)
-        }
+    for (e in list.files(path = folder, pattern = pattern)) {
+      from <- file.path(folder, e)
+      to <- file.path(substitute_definitions("${target-folder}"), e)
+      if (file_test("-d", from)) copy_job_do(from, to)
     }
+  }
 }
 
 increment_index_job <- function(job) increment_index()
 
 jobs <- list(
-    "copy" = copy_job,
-    "zip" = zip_job,
-    "delete" = delete_job,
-    "assignment-paper" = assignment_paper_job,
-    "increment-index" = increment_index_job
+  "copy" = copy_job,
+  "zip" = zip_job,
+  "delete" = delete_job,
+  "assignment-paper" = assignment_paper_job,
+  "increment-index" = increment_index_job
 )
 
 handle_job <- function(job) jobs[[names(job)[[1]]]](job)
@@ -213,41 +238,40 @@ definitions <- list()
 define <- function(var, val) definitions[[var]] <<- val
 
 substitute_definitions <- function(s) {
-    changed <- TRUE
-    while (changed) {
-        changed <- FALSE
-        for (key in names(definitions)) {
-            value <- definitions[[key]]
-            if (length(value)) {
-                s_old <- s
-                var <- paste0("${", key, "}")
-                s <- str_replace_all(s, fixed(var), value)
-                if (s != s_old) changed <- TRUE
-            }
-        }
+  changed <- TRUE
+  while (changed) {
+    changed <- FALSE
+    for (key in names(definitions)) {
+      value <- definitions[[key]]
+      if (length(value)) {
+        s_old <- s
+        var <- paste0("${", key, "}")
+        s <- str_replace_all(s, fixed(var), value)
+        if (s != s_old) changed <- TRUE
+      }
     }
-    s
+  }
+  s
 }
 
 # Index
 idx <- 0
 
 reset_index <- function() {
-    idx <<- 0
-    increment_index()
+  idx <<- 0
+  increment_index()
 }
 
 increment_index <- function() {
-    idx <<- idx + 1
-    define("sidx", idx)
-    define("idx", str_pad(idx, 2, side = "left", pad = "0"))
+  idx <<- idx + 1
+  define("sidx", idx)
+  define("idx", str_pad(idx, 2, side = "left", pad = "0"))
 }
 
 
 # -------------------------------------------------------------------------------------------------
 # Process input
 # -------------------------------------------------------------------------------------------------
-
 
 # Message
 cat("Collecting content...\n")
@@ -270,15 +294,19 @@ define("project-folder", from_project_root())
 
 # Definitions from YAML
 for (def in yaml$definitions) {
-    var <- names(def)[1]
-    val <- def[[var]]
-    define(var, val)
+  var <- names(def)[1]
+  val <- def[[var]]
+  define(var, val)
 }
 
 
 # Clean up and make target folder
-if (dir.exists(deploy_folder)) unlink(deploy_folder, recursive = TRUE)
-if (dir.exists(target_folder)) unlink(target_folder, recursive = TRUE)
+if (dir.exists(deploy_folder)) {
+  unlink(deploy_folder, recursive = TRUE)
+}
+if (dir.exists(target_folder)) {
+  unlink(target_folder, recursive = TRUE)
+}
 dir.create(target_folder, recursive = TRUE)
 
 
@@ -290,21 +318,21 @@ walk(yaml$jobs, handle_job)
 # Process parts
 reset_index()
 for (part in yaml$parts) {
-    if (part$folder != "skip") {
-        #
-        # Define name and part folder
-        define("name", str_match(part$folder, yaml$`part-name-pattern`)[2])
-        define("part-folder", from_project_root(part$folder))
+  if (part$folder != "skip") {
+    #
+    # Define name and part folder
+    define("name", str_match(part$folder, yaml$`part-name-pattern`)[2])
+    define("part-folder", from_project_root(part$folder))
 
-        # Check if part folder exists
-        if (!dir.exists(definitions[["part-folder"]])) {
-            stop("Part folder does not exist: ", definitions[["part-folder"]])
-        }
-
-        # Process jobs
-        walk(yaml$`jobs-on-parts`, handle_job)
+    # Check if part folder exists
+    if (!dir.exists(definitions[["part-folder"]])) {
+      stop("Part folder does not exist: ", definitions[["part-folder"]])
     }
 
-    # Increment counter
-    increment_index()
+    # Process jobs
+    walk(yaml$`jobs-on-parts`, handle_job)
+  }
+
+  # Increment counter
+  increment_index()
 }
