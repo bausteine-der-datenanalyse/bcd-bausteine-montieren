@@ -161,6 +161,12 @@ Erzeugt aus einzelnen Aufgabendateien ein Aufgabenblatt und ein Lösungsblatt:
 - `folders`: Unterordner, die passend zum Muster in `${target-folder}` kopiert werden (z. B. Daten, Bilder),
   ebenfalls nicht rekursiv.
 - Der Job erhöht den Index nicht. Danach folgt deshalb in der Regel `- increment-index:`.
+- Platzhalter `${zipfile}` in den Aufgabendateien: Ist unter `definitions` eine Variable `zipfile` festgelegt (z. B.
+  `zipfile: ${idx}-${name}-aufgaben.zip`, dieselbe Variable verwenden dann auch die `jobs-on-parts`), wird
+  `${zipfile}` in Aufgaben und Lösungen durch deren Wert ersetzt. `${idx}` und `${name}` sind dabei die des Teils
+  aus `parts`, zu dessen Ordner die Aufgabendatei gehört, nicht die des Aufgabenblatts. Ein Blatt mit Aufgaben aus
+  zwei Teilen verweist so auf die richtigen Zips. Gehört der Ordner zu keinem Teil, bleibt der Platzhalter stehen.
+  Andere `${…}` in den Aufgaben werden nicht ersetzt.
 
 ### `increment-index`
 

@@ -146,6 +146,33 @@ delete_job <- function(job) {
   unlink(folder, recursive = TRUE)
 }
 
+# Value of definition `zipfile` for the part with the given folder: index and name are those of the part, not of
+# the assignment paper (an assignment paper can contain several parts). NULL if there is no such part.
+zipfile_for_folder <- function(folder) {
+  if (is.null(definitions[["zipfile"]])) {
+    return(NULL)
+  }
+  for (i in seq_along(yaml$parts)) {
+    part_folder <- yaml$parts[[i]]$folder
+    if (part_folder != "skip" && normalizePath(from_project_root(part_folder)) == normalizePath(folder)) {
+      zipfile <- definitions[["zipfile"]] |>
+        str_replace_all(fixed("${idx}"), str_pad(i, 2, side = "left", pad = "0")) |>
+        str_replace_all(fixed("${name}"), str_match(part_folder, yaml$`part-name-pattern`)[2])
+      return(substitute_definitions(zipfile))
+    }
+  }
+  NULL
+}
+
+# Read file, replace placeholder ${zipfile} if there is a value
+read_assignment_lines <- function(file, zipfile) {
+  lines <- read_lines(file)
+  if (!is.null(zipfile)) {
+    lines <- str_replace_all(lines, fixed("${zipfile}"), zipfile)
+  }
+  lines
+}
+
 assignment_paper_job_do <- function(pwps, with_solution) {
   #
   # Process files
@@ -154,6 +181,7 @@ assignment_paper_job_do <- function(pwps, with_solution) {
     pwp <- substitute_definitions(pwp)
     folder <- dirname(pwp)
     pattern <- basename(pwp)
+    zipfile <- zipfile_for_folder(folder)
 
     for (file in list.files(path = folder, pattern = pattern)) {
       file_sol <- str_replace(file, fixed(".qmd"), ".sol.qmd")
@@ -163,7 +191,7 @@ assignment_paper_job_do <- function(pwps, with_solution) {
       if (!is_solution) {
         #
         # Cat assignment
-        cat(read_lines(file.path(folder, file)), sep = "\n")
+        cat(read_assignment_lines(file.path(folder, file), zipfile), sep = "\n")
         cat("\n")
 
         # Announce solution
@@ -174,7 +202,7 @@ assignment_paper_job_do <- function(pwps, with_solution) {
       } else if (with_solution) {
         #
         # Cat solution
-        cat(read_lines(file.path(folder, file)), sep = "\n")
+        cat(read_assignment_lines(file.path(folder, file), zipfile), sep = "\n")
         cat("\n")
       }
     }
