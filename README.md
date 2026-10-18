@@ -134,6 +134,17 @@ Löscht einen Ordner samt Inhalt, z. B. den Ordner, der eben gezippt wurde.
   folder: ${target-folder}/${idx}-${name}
 ```
 
+### `symlink`
+
+Legt einen symbolischen Link `link` an, der auf `target` zeigt (`target` relativ zum Ordner von `link`). Fehlende
+Ordner für `link` werden angelegt.
+
+```yaml
+- symlink:
+  target: ../skript/01-daten
+  link: ${target-folder}/folien/01-daten
+```
+
 ### `assignment-paper`
 
 Erzeugt aus einzelnen Aufgabendateien ein Aufgabenblatt und ein Lösungsblatt:

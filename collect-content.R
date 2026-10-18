@@ -154,6 +154,14 @@ zip_job <- function(job) {
   zip::zip(zipfile, folder, root = root)
 }
 
+symlink_job <- function(job) {
+  link <- substitute_definitions(job$link)
+  if (!dir.exists(dirname(link))) dir.create(dirname(link), recursive = TRUE)
+  # Remove existing link (or file) as ln -sfn does, unlink does not follow links
+  if (nzchar(Sys.readlink(link)) || file.exists(link)) unlink(link)
+  file.symlink(substitute_definitions(job$target), link)
+}
+
 delete_job <- function(job) {
   folder <- substitute_definitions(job$folder)
   unlink(folder, recursive = TRUE)
@@ -262,6 +270,7 @@ jobs <- list(
   "copy" = copy_job,
   "zip" = zip_job,
   "delete" = delete_job,
+  "symlink" = symlink_job,
   "assignment-paper" = assignment_paper_job,
   "increment-index" = increment_index_job
 )
