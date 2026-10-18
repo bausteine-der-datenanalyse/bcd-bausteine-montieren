@@ -17,7 +17,8 @@ Benötigte R-Pakete: `yaml`, `purrr`, `readr`, `stringr`, `rprojroot`, `zip`.
 
 1. `content.yml` im aktuellen Verzeichnis (Projektordner) einlesen.
 2. Den Projekt-Root bestimmen: Das ist der nächste übergeordnete Ordner mit einer `DESCRIPTION`-Datei.
-3. `deploy-folder` und `target-folder` **löschen**, dann `target-folder` neu anlegen.
+3. `target-folder` **löschen** und neu anlegen. Der `deploy-folder` bleibt stehen, weil er beim Aufruf als
+   `pre-render` schon gerenderte Dateien enthält.
 4. Die Jobs unter `jobs` einmal ausführen.
 5. Die Jobs unter `jobs-on-parts` für jeden Eintrag in `parts` ausführen.
 
@@ -28,8 +29,8 @@ Benötigte R-Pakete: `yaml`, `purrr`, `readr`, `stringr`, `rprojroot`, `zip`.
 target-folder: c
 
 # Ordner für Dateien, die direkt veröffentlicht werden (z. B. Zips), relativ zum Projekt-Root.
-# Wird ebenfalls bei jedem Lauf geleert.
-deploy-folder: _output/folien-r/c
+# Wird nicht geleert.
+deploy-folder: __output/folien-r/c
 
 # Eigene Variablen
 definitions:

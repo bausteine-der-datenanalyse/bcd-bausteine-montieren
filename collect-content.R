@@ -341,10 +341,8 @@ for (def in yaml$definitions) {
 }
 
 
-# Clean up and make target folder
-if (dir.exists(deploy_folder)) {
-  unlink(deploy_folder, recursive = TRUE)
-}
+# Clean up and make target folder. The deploy folder is not cleaned up since it contains rendered files when this
+# script runs as pre-render.
 if (dir.exists(target_folder)) {
   unlink(target_folder, recursive = TRUE)
 }
