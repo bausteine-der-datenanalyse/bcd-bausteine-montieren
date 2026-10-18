@@ -107,6 +107,8 @@ Kopiert eine Datei oder den Inhalt eines Ordners.
   mehrere Teile in denselben Ordner kopieren.
 - `transform` mit `type: replace` ersetzt zeilenweise per regulärem Ausdruck, aber nicht innerhalb von
   ```` ```{r} ````-Chunks. Im Beispiel werden so alle Überschriften eine Ebene tiefer gesetzt.
+- `transform` mit `type: insert-after-header` fügt `text` direkt nach dem YAML-Kopf ein (Variablen wie `${idx}`
+  werden ersetzt), z. B. Links auf Zip und PDF auf der zweiten Folie.
 
 ### `zip`
 

@@ -63,10 +63,23 @@ do_transform_replace <- function(file, pattern, replacement, replace_in_chunk = 
   write_lines(lines, file)
 }
 
+# Insert text after the YAML header (or at the beginning if there is none)
+do_transform_insert_after_header <- function(file, text) {
+  lines <- read_lines(file)
+  end_header <- 0
+  if (length(lines) && lines[1] == "---") {
+    end_header <- which(lines[-1] == "---")[1] + 1
+  }
+  lines <- append(lines, c("", str_split_1(substitute_definitions(text), "\n")), after = end_header)
+  write_lines(lines, file)
+}
+
 do_transform <- function(files, transform) {
   for (file in files) {
     if (transform$type == "replace") {
       do_transform_replace(file, transform$pattern, transform$replacement)
+    } else if (transform$type == "insert-after-header") {
+      do_transform_insert_after_header(file, transform$text)
     } else {
       stop("Unknown transform: ", transform$type)
     }
