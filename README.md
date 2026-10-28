@@ -169,8 +169,10 @@ Erzeugt aus einzelnen Aufgabendateien ein Aufgabenblatt und ein Lösungsblatt:
 - `files`: Ordner mit Muster, die Treffer werden in alphabetischer Reihenfolge aneinandergehängt. Das Muster ist
   ein regulärer Ausdruck, kein Glob. `*.qmd` funktioniert trotzdem, `10.*.qmd` wählt die Dateien, die mit `10`
   beginnen.
-- Zu `aufgabe.qmd` gehört die Lösung `aufgabe.sol.qmd`. Auf dem Lösungsblatt folgt sie unter "Lösung" auf die
-  Aufgabe, fehlt sie, steht dort "Keine Lösung". Auf dem Lösungsblatt werden R-Chunks nur angezeigt, nicht
+- Die Lösung steht in der Aufgabe selbst als Block `::: {.tinh-solution}` am Ende des Divs `::: {#exr-…}`. Welche
+  Teile auf den Blättern erscheinen, steuert der Filter der Extension tinh über die Kopfzeilen: `tinh-target: blank`
+  beim Aufgabenblatt, `tinh-target: solution` und `tinh-solution-task: title` beim Lösungsblatt (nur Titel und
+  Lösung, ohne Lösung "Keine Lösung."). R-Chunks in Lösungsblöcken werden auf beiden Blättern nur angezeigt, nicht
   ausgeführt (`{r}` wird zu `{.r}`).
 - `folders`: Unterordner, die passend zum Muster in `${target-folder}` kopiert werden (z. B. Daten, Bilder),
   ebenfalls nicht rekursiv.

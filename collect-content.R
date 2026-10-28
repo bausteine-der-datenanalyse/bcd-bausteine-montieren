@@ -40,7 +40,7 @@ file_copy_safe <- function(from, to, overwrite) {
   file.copy(from, to)
 }
 
-do_transform_replace <- function(file, pattern, replacement, replace_in_chunk = FALSE) {
+do_transform_replace <- function(file, pattern, replacement) {
   in_chunk <- FALSE
   lines <- read_lines(file)
   for (i in seq_along(lines)) {
@@ -54,7 +54,7 @@ do_transform_replace <- function(file, pattern, replacement, replace_in_chunk = 
     }
 
     # Transform if not in chunk
-    if (!in_chunk || replace_in_chunk) {
+    if (!in_chunk) {
       lines[i] <- str_replace_all(l, regex(pattern), replacement)
     } else {
       lines[i] <- l
@@ -185,16 +185,28 @@ zipfile_for_folder <- function(folder) {
   NULL
 }
 
-# Read file, replace placeholder ${zipfile} if there is a value
+# Read file, replace placeholder ${zipfile} if there is a value. R chunks in solution blocks (::: {.tinh-solution}
+# up to the next :::) are only shown, not run (`{r}` becomes `{.r}`): knitr would run them on both sheets before
+# the filter of the extension tinh removes or keeps the blocks.
 read_assignment_lines <- function(file, zipfile) {
   lines <- read_lines(file)
   if (!is.null(zipfile)) {
     lines <- str_replace_all(lines, fixed("${zipfile}"), zipfile)
   }
+  in_solution <- FALSE
+  for (i in seq_along(lines)) {
+    if (str_detect(lines[i], "^:::+\\s*\\{\\.tinh-solution\\}")) {
+      in_solution <- TRUE
+    } else if (in_solution && str_detect(lines[i], "^:::+\\s*$")) {
+      in_solution <- FALSE
+    } else if (in_solution) {
+      lines[i] <- str_replace(lines[i], "^```\\{r\\}", "```{.r}")
+    }
+  }
   lines
 }
 
-assignment_paper_job_do <- function(pwps, with_solution) {
+assignment_paper_job_do <- function(pwps) {
   #
   # Process files
   # pwp stands for path with pattern
@@ -205,27 +217,8 @@ assignment_paper_job_do <- function(pwps, with_solution) {
     zipfile <- zipfile_for_folder(folder)
 
     for (file in list.files(path = folder, pattern = pattern)) {
-      file_sol <- str_replace(file, fixed(".qmd"), ".sol.qmd")
-      is_solution <- str_detect(file, fixed(".sol."))
-      have_solution <- file.exists(file.path(folder, file_sol))
-
-      if (!is_solution) {
-        #
-        # Cat assignment
-        cat(read_assignment_lines(file.path(folder, file), zipfile), sep = "\n")
-        cat("\n")
-
-        # Announce solution
-        if (with_solution) {
-          cat("### Lösung {-}\n\n")
-          if (!have_solution) cat("Keine Lösung\n\n")
-        }
-      } else if (with_solution) {
-        #
-        # Cat solution
-        cat(read_assignment_lines(file.path(folder, file), zipfile), sep = "\n")
-        cat("\n")
-      }
+      cat(read_assignment_lines(file.path(folder, file), zipfile), sep = "\n")
+      cat("\n")
     }
   }
 }
@@ -238,17 +231,15 @@ assignment_paper_job <- function(job) {
   sink(substitute_definitions("${target-folder}/aufgabenblatt-${idx}.qmd"))
   cat(substitute_definitions("${assignment-header}"))
   cat("\n")
-  assignment_paper_job_do(job$files, with_solution = FALSE)
+  assignment_paper_job_do(job$files)
   sink()
 
   # Solutions
-  f <- substitute_definitions("${target-folder}/aufgabenblatt-${idx}-loesung-${sol}.qmd")
-  sink(f)
+  sink(substitute_definitions("${target-folder}/aufgabenblatt-${idx}-loesung-${sol}.qmd"))
   cat(substitute_definitions("${assignment-solution-header}"))
   cat("\n")
-  assignment_paper_job_do(job$files, with_solution = TRUE)
+  assignment_paper_job_do(job$files)
   sink()
-  do_transform_replace(f, "\\{r\\}", "{.r}", replace_in_chunk = TRUE)
 
   # Folders
   for (pwp in job$folders) {
