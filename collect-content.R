@@ -37,7 +37,7 @@ prepare_copy_to <- function(to, overwrite) {
 
 file_copy_safe <- function(from, to, overwrite) {
   prepare_copy_to(to, overwrite)
-  file.copy(from, to)
+  file.copy(from, to, overwrite = TRUE)
 }
 
 do_transform_replace <- function(file, pattern, replacement) {
