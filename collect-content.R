@@ -185,9 +185,9 @@ zipfile_for_folder <- function(folder) {
   NULL
 }
 
-# Read file, replace placeholder ${zipfile} if there is a value. R chunks in solution blocks (::: {.tinh-solution}
-# up to the next :::) are only shown, not run (`{r}` becomes `{.r}`): knitr would run them on both sheets before
-# the filter of the extension tinh removes or keeps the blocks.
+# Read file, replace placeholder ${zipfile} if there is a value. R chunks in solution and work blocks
+# (::: {.tinh-solution} or ::: {.tinh-work} up to the next :::) are only shown, not run (`{r}` becomes `{.r}`):
+# knitr would run them on both sheets before the filter of the extension tinh removes or keeps the blocks.
 read_assignment_lines <- function(file, zipfile) {
   lines <- read_lines(file)
   if (!is.null(zipfile)) {
@@ -195,7 +195,7 @@ read_assignment_lines <- function(file, zipfile) {
   }
   in_solution <- FALSE
   for (i in seq_along(lines)) {
-    if (str_detect(lines[i], "^:::+\\s*\\{\\.tinh-solution\\}")) {
+    if (str_detect(lines[i], "^:::+\\s*\\{\\.tinh-(solution|work)\\}")) {
       in_solution <- TRUE
     } else if (in_solution && str_detect(lines[i], "^:::+\\s*$")) {
       in_solution <- FALSE

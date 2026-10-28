@@ -172,8 +172,9 @@ Erzeugt aus einzelnen Aufgabendateien ein Aufgabenblatt und ein Lösungsblatt:
 - Die Lösung steht in der Aufgabe selbst als Block `::: {.tinh-solution}` am Ende des Divs `::: {#exr-…}`. Welche
   Teile auf den Blättern erscheinen, steuert der Filter der Extension tinh über die Kopfzeilen: `tinh-target: blank`
   beim Aufgabenblatt, `tinh-target: solution` und `tinh-solution-task: title` beim Lösungsblatt (nur Titel und
-  Lösung, ohne Lösung "Keine Lösung."). R-Chunks in Lösungsblöcken werden auf beiden Blättern nur angezeigt, nicht
-  ausgeführt (`{r}` wird zu `{.r}`).
+  Lösung, ohne Lösung "Keine Lösung."). Was nur zum Testen der Lösungen dient (Pakete, Daten laden), steht in einem
+  Block `::: {.tinh-work}` am Anfang der Datei, den der Filter auf beiden Blättern entfernt. R-Chunks in Lösungs- und
+  Work-Blöcken werden auf beiden Blättern nur angezeigt, nicht ausgeführt (`{r}` wird zu `{.r}`).
 - `folders`: Unterordner, die passend zum Muster in `${target-folder}` kopiert werden (z. B. Daten, Bilder),
   ebenfalls nicht rekursiv.
 - Der Job erhöht den Index nicht. Danach folgt deshalb in der Regel `- increment-index:`.
