@@ -174,7 +174,11 @@ Erzeugt aus einzelnen Aufgabendateien ein Aufgabenblatt und ein Lösungsblatt:
   beim Aufgabenblatt, `tinh-target: solution` und `tinh-solution-task: title` beim Lösungsblatt (nur Titel und
   Lösung, ohne Lösung "Keine Lösung."). Was nur zum Testen der Lösungen dient (Pakete, Daten laden), steht in einem
   Block `::: {.tinh-work}` am Anfang der Datei, den der Filter auf beiden Blättern entfernt. R-Chunks in Lösungs- und
-  Work-Blöcken werden auf beiden Blättern nur angezeigt, nicht ausgeführt (`{r}` wird zu `{.r}`).
+  Work-Blöcken werden im Aufgabenblatt nur angezeigt, nicht ausgeführt (`{r}` wird zu `{.r}`, Inline-Code
+  `` `{r} …` `` zu `` `{{r}} …` ``). Im Lösungsblatt gilt das ebenso, außer mit `run-solutions: true`.
+- `run-solutions: true`: Im Lösungsblatt werden die R-Chunks ausgeführt, die Lösung zeigt also Ausgaben und Plots.
+  Ein versteckter Chunk nach dem Kopf setzt das Arbeitsverzeichnis (`root.dir`) auf den Ordner der ersten Zip-Datei
+  der Teile (Name der Variablen `zipfile` ohne `.zip`), in dem die Daten liegen.
 - `folders`: Unterordner, die passend zum Muster in `${target-folder}` kopiert werden (z. B. Daten, Bilder),
   ebenfalls nicht rekursiv.
 - Der Job erhöht den Index nicht. Danach folgt deshalb in der Regel `- increment-index:`.

@@ -186,12 +186,17 @@ zipfile_for_folder <- function(folder) {
 }
 
 # Read file, replace placeholder ${zipfile} if there is a value. R chunks in solution and work blocks
-# (::: {.tinh-solution} or ::: {.tinh-work} up to the next :::) are only shown, not run (`{r}` becomes `{.r}`):
+# (::: {.tinh-solution} or ::: {.tinh-work} up to the next :::) are only shown, not run (`{r}` becomes `{.r}`, inline
+# code `{r} …` becomes `{{r}} …`):
 # knitr would run them on both sheets before the filter of the extension tinh removes or keeps the blocks.
-read_assignment_lines <- function(file, zipfile) {
+# With run = TRUE (solution sheet with run-solutions) they are run.
+read_assignment_lines <- function(file, zipfile, run = FALSE) {
   lines <- read_lines(file)
   if (!is.null(zipfile)) {
     lines <- str_replace_all(lines, fixed("${zipfile}"), zipfile)
+  }
+  if (run) {
+    return(lines)
   }
   in_solution <- FALSE
   for (i in seq_along(lines)) {
@@ -201,12 +206,14 @@ read_assignment_lines <- function(file, zipfile) {
       in_solution <- FALSE
     } else if (in_solution) {
       lines[i] <- str_replace(lines[i], "^```\\{r\\}", "```{.r}")
+      # Inline code `{r} …` is shown as text (`{{r}} …`)
+      lines[i] <- str_replace_all(lines[i], fixed("`{r} "), "`{{r}} ")
     }
   }
   lines
 }
 
-assignment_paper_job_do <- function(pwps) {
+assignment_paper_job_do <- function(pwps, run = FALSE) {
   #
   # Process files
   # pwp stands for path with pattern
@@ -217,10 +224,23 @@ assignment_paper_job_do <- function(pwps) {
     zipfile <- zipfile_for_folder(folder)
 
     for (file in list.files(path = folder, pattern = pattern)) {
-      cat(read_assignment_lines(file.path(folder, file), zipfile), sep = "\n")
+      cat(read_assignment_lines(file.path(folder, file), zipfile, run), sep = "\n")
       cat("\n")
     }
   }
+}
+
+# Hidden chunk for a solution sheet with run-solutions: R chunks run in the folder of the zip file, where the data
+# are (folder of the first zip file of the parts, the zip file of an assignment paper contains all data)
+run_solutions_chunk <- function(pwps) {
+  zipfiles <- unlist(lapply(pwps, \(pwp) zipfile_for_folder(dirname(substitute_definitions(pwp)))))
+  if (length(zipfiles) == 0) {
+    return()
+  }
+  root_dir <- file.path(normalizePath(substitute_definitions("${target-folder}")), str_remove(zipfiles[1], "\\.zip$"))
+  cat("```{r}", "#| include: false", paste0("knitr::opts_knit$set(root.dir = \"", root_dir, "\")"), "```", "",
+    sep = "\n"
+  )
 }
 
 assignment_paper_job <- function(job) {
@@ -238,7 +258,9 @@ assignment_paper_job <- function(job) {
   sink(substitute_definitions("${target-folder}/aufgabenblatt-${idx}-loesung-${sol}.qmd"))
   cat(substitute_definitions("${assignment-solution-header}"))
   cat("\n")
-  assignment_paper_job_do(job$files)
+  run <- isTRUE(job$`run-solutions`)
+  if (run) run_solutions_chunk(job$files)
+  assignment_paper_job_do(job$files, run)
   sink()
 
   # Folders
